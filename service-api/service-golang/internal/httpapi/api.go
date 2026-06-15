@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -233,13 +234,8 @@ func (api *API) changeTicketStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
-	decoder := json.NewDecoder(r.Body)
-	decoder.DisallowUnknownFields()
-
 	var input ticket.StatusInput
-	if err := decoder.Decode(&input); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_json", "Não foi possível interpretar os dados enviados.", nil)
+	if !decodeJSONBody(w, r, &input) {
 		return
 	}
 
@@ -252,14 +248,8 @@ func (api *API) changeTicketStatus(w http.ResponseWriter, r *http.Request) {
 
 // decodeInput interpreta o corpo recebido pela API.
 func (api *API) decodeInput(w http.ResponseWriter, r *http.Request) (ticket.UpsertInput, bool) {
-	// Limita o corpo a 1 MB e rejeita campos desconhecidos para manter o contrato explícito.
-	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
-	decoder := json.NewDecoder(r.Body)
-	decoder.DisallowUnknownFields()
-
 	var input ticket.UpsertInput
-	if err := decoder.Decode(&input); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_json", "Não foi possível interpretar os dados enviados.", nil)
+	if !decodeJSONBody(w, r, &input) {
 		return ticket.UpsertInput{}, false
 	}
 
@@ -269,16 +259,28 @@ func (api *API) decodeInput(w http.ResponseWriter, r *http.Request) (ticket.Upse
 // ticketID extrai e valida o identificador presente na rota.
 // decodeAssigneeInput interpreta o corpo das operações de gestão da equipe.
 func (api *API) decodeAssigneeInput(w http.ResponseWriter, r *http.Request) (ticket.AssigneeInput, bool) {
+	var input ticket.AssigneeInput
+	if !decodeJSONBody(w, r, &input) {
+		return ticket.AssigneeInput{}, false
+	}
+	return input, true
+}
+
+// decodeJSONBody aceita exatamente um objeto JSON e rejeita campos desconhecidos.
+func decodeJSONBody(w http.ResponseWriter, r *http.Request, target any) bool {
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
 
-	var input ticket.AssigneeInput
-	if err := decoder.Decode(&input); err != nil {
+	if err := decoder.Decode(target); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_json", "Não foi possível interpretar os dados enviados.", nil)
-		return ticket.AssigneeInput{}, false
+		return false
 	}
-	return input, true
+	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		writeError(w, http.StatusBadRequest, "invalid_json", "Envie apenas um objeto JSON.", nil)
+		return false
+	}
+	return true
 }
 
 func (api *API) ticketID(w http.ResponseWriter, r *http.Request) (int64, bool) {

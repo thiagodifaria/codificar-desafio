@@ -21,7 +21,10 @@ for file in "$MIGRATIONS_DIR"/*.sql; do
   fi
 
   echo "Applying $version"
-  psql -v ON_ERROR_STOP=1 -f "$file"
-  psql -v ON_ERROR_STOP=1 \
-    -c "INSERT INTO schema_migrations (version) VALUES ('$version')"
+  {
+    printf 'BEGIN;\n'
+    cat "$file"
+    printf "\nINSERT INTO schema_migrations (version) VALUES ('%s');\n" "$version"
+    printf 'COMMIT;\n'
+  } | psql -v ON_ERROR_STOP=1
 done

@@ -144,6 +144,28 @@ func TestCreateTicketRejectsInvalidJSON(t *testing.T) {
 	assertErrorCode(t, response.Body.Bytes(), "invalid_json")
 }
 
+func TestCreateTicketRejectsTrailingJSON(t *testing.T) {
+	handler := newTestHandler(serviceStub{})
+	body := bytes.NewBufferString(`{
+		"title":"Acesso bloqueado",
+		"description":"Usuário sem acesso.",
+		"requesterName":"Financeiro",
+		"priority":"medium",
+		"status":"open",
+		"assignmentMode":"automatic",
+		"assigneeId":0
+	}{"unexpected":true}`)
+	request := httptest.NewRequest(http.MethodPost, "/api/tickets", body)
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, response.Code)
+	}
+	assertErrorCode(t, response.Body.Bytes(), "invalid_json")
+}
+
 func TestCreateTicketReturnsValidationFields(t *testing.T) {
 	handler := newTestHandler(serviceStub{
 		create: func(context.Context, ticket.UpsertInput) (ticket.Ticket, error) {
@@ -220,6 +242,23 @@ func TestChangeTicketStatusReturnsUpdatedTicket(t *testing.T) {
 	if updated.ID != 7 || updated.Status != ticket.StatusResolved {
 		t.Fatalf("unexpected updated ticket: %+v", updated)
 	}
+}
+
+func TestChangeTicketStatusRejectsTrailingJSON(t *testing.T) {
+	handler := newTestHandler(serviceStub{})
+	request := httptest.NewRequest(
+		http.MethodPatch,
+		"/api/tickets/7/status",
+		bytes.NewBufferString(`{"status":"resolved"}{"status":"closed"}`),
+	)
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, response.Code)
+	}
+	assertErrorCode(t, response.Body.Bytes(), "invalid_json")
 }
 
 func TestOptionsReturnsCORSHeaders(t *testing.T) {
