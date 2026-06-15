@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose -f infra/compose.yaml up -d --wait --wait-timeout 60 database
+      - run: docker compose -f infra/compose.yaml exec -T database psql -v ON_ERROR_STOP=1 -U chamados -d postgres -c "CREATE DATABASE chamados_test;"
+      - run: docker compose -f infra/compose.yaml exec -T database sh -c 'for file in /database/migrations/*.sql; do psql -v ON_ERROR_STOP=1 -U chamados -d chamados_test -f "$file"; done'
+      - run: docker run --rm --network codificar-chamados_default -e TEST_DATABASE_URL="postgres://chamados:chamados@database:5432/chamados_test?sslmode=disable" -v "$PWD/service-api/service-golang:/src" -w /src golang:1.26-alpine sh -c "go test ./... && go vet ./..."
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: client-web/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - run: git diff --exit-code src/types/api.generated.ts
+
+  containers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose -f infra/compose.yaml config --quiet
+      - run: docker compose -f infra/compose.yaml build

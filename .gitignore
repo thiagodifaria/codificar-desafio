@@ -1,0 +1,7 @@
+.env
+.cache
+.vscode/
+client-web/dist/
+client-web/node_modules/
+service-api/service-golang/bin/
+coverage.out

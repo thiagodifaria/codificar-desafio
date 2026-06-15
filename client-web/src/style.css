@@ -1,0 +1,57 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", "Segoe UI", system-ui, sans-serif;
+}
+
+@layer base {
+  * {
+    @apply border-slate-200;
+  }
+
+  body {
+    @apply m-0 min-w-80 antialiased;
+  }
+
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    @apply outline-none;
+  }
+
+  :focus-visible {
+    @apply ring-2 ring-emerald-500 ring-offset-2;
+  }
+}
+
+@layer components {
+  .button-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-800 active:translate-y-px;
+  }
+
+  .button-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50;
+  }
+
+  .button-danger {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .panel {
+    @apply rounded-2xl border border-slate-200/80 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.03)];
+  }
+
+  .field-label {
+    @apply mb-2 block text-sm font-semibold text-slate-700;
+  }
+
+  .field {
+    @apply w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 hover:border-slate-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/15;
+  }
+
+  .field-error {
+    @apply mt-1.5 text-xs font-medium text-rose-600;
+  }
+}
