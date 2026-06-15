@@ -29,15 +29,7 @@ services:
       PGPASSWORD: ${POSTGRES_PASSWORD:-chamados}
     volumes:
       - ../service-api/service-postgresql:/database:ro
-    command:
-      - sh
-      - -c
-      - |
-        set -eu
-        for file in /database/migrations/*.sql; do
-          echo "Applying $$file"
-          psql -v ON_ERROR_STOP=1 -f "$$file"
-        done
+    command: ["sh", "/database/migrate.sh"]
     restart: "no"
 
   api:

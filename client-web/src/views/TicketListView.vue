@@ -15,11 +15,11 @@ const assignees = ref<Assignee[]>([])
 const loading = ref(true)
 const error = ref('')
 const filters = reactive({
-  search: String(route.query.search ?? ''),
-  status: String(route.query.status ?? ''),
-  priority: String(route.query.priority ?? ''),
-  assigneeId: Number(route.query.assigneeId ?? 0),
-  sort: (route.query.sort as TicketSort | undefined) ?? 'priority_desc',
+  search: '',
+  status: '',
+  priority: '',
+  assigneeId: 0,
+  sort: 'priority_desc' as TicketSort,
 })
 let searchTimer: ReturnType<typeof setTimeout> | undefined
 
@@ -39,21 +39,54 @@ async function loadTickets() {
   }
 }
 
+function filtersFromRoute() {
+  return {
+    search: String(route.query.search ?? ''),
+    status: String(route.query.status ?? ''),
+    priority: String(route.query.priority ?? ''),
+    assigneeId: Number(route.query.assigneeId ?? 0),
+    sort: (route.query.sort as TicketSort | undefined) ?? 'priority_desc',
+  }
+}
+
+function queryFromFilters() {
+  const query: Record<string, string> = {}
+  if (filters.search) query.search = filters.search
+  if (filters.status) query.status = filters.status
+  if (filters.priority) query.priority = filters.priority
+  if (filters.assigneeId) query.assigneeId = String(filters.assigneeId)
+  if (filters.sort !== 'priority_desc') query.sort = filters.sort
+  return query
+}
+
+function queriesMatch(left: Record<string, unknown>, right: Record<string, string>) {
+  const normalizedLeft = Object.fromEntries(
+    Object.entries(left).map(([key, value]) => [key, String(value)]),
+  )
+  return JSON.stringify(normalizedLeft) === JSON.stringify(right)
+}
+
 watch(
   () => [filters.search, filters.status, filters.priority, filters.assigneeId, filters.sort],
   () => {
     clearTimeout(searchTimer)
-    searchTimer = setTimeout(async () => {
-      const query: Record<string, string> = {}
-      if (filters.search) query.search = filters.search
-      if (filters.status) query.status = filters.status
-      if (filters.priority) query.priority = filters.priority
-      if (filters.assigneeId) query.assigneeId = String(filters.assigneeId)
-      if (filters.sort !== 'priority_desc') query.sort = filters.sort
-      await router.replace({ query })
-      await loadTickets()
+    searchTimer = setTimeout(() => {
+      const query = queryFromFilters()
+      if (!queriesMatch(route.query, query)) {
+        void router.push({ query })
+      }
     }, 250)
   },
+)
+
+watch(
+  () => route.query,
+  async () => {
+    clearTimeout(searchTimer)
+    Object.assign(filters, filtersFromRoute())
+    await loadTickets()
+  },
+  { immediate: true },
 )
 
 function clearFilters() {
@@ -67,11 +100,7 @@ function clearFilters() {
 }
 
 onMounted(async () => {
-  try {
-    assignees.value = await api.assignees()
-  } finally {
-    await loadTickets()
-  }
+  assignees.value = await api.assignees().catch(() => [])
 })
 </script>
 
